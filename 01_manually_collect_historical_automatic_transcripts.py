@@ -7,8 +7,12 @@ to create directories for and collect transcripts from
 ALL videos from that channel
 """
 
+
+with open('keys.txt', 'r') as file:
+    API_KEY = str(file.read().strip())
+
 print('WARNING \n This script will collect a vast amount of data using the youtube_transcript_api and it may take a long time to execute fully')
-print('Input the desired youtube channel name:')
+print('Input the desired youtube channel ID:')
 channel_id = input()
 
 print(f'Now starting to collect all transcripts from the YouTube channel: "{channel_id}"')
@@ -20,7 +24,6 @@ print(f'Now starting to collect all transcripts from the YouTube channel: "{chan
 ### Parameters:
 max_results = 5
 database_name = r'database'
-
 
 ## Get info about the channel using the channel id, to get the uploads playlist id
 channel_info = get_channel_info(api_key=API_KEY, channel_id=channel_id)

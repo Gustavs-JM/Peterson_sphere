@@ -1,15 +1,15 @@
-channel name	owner	circle	address	channel id
-The Jordan B. Peterson Podcast	Jordan B Peterson	inner	https://www.youtube.com/@JordanBPeterson	UCL_f53ZEJxp8TtlOkHwMV9Q
-Jonathan Pageau	Jonathan Pageau	inner	https://www.youtube.com/@JonathanPageau/videos	UCgIbaWd7raqeIGUS1cHNgPg
-John Vervaeke	John Vervaeke	inner	https://www.youtube.com/@johnvervaeke	UCpqDUjTsof-kTNpnyWper_Q
-Paul VanderKlay	Paul VanderKlay	inner	https://www.youtube.com/@PaulVanderKlay	
-Bishop Robert Barron	Bishop Robert Barron	outer	https://www.youtube.com/@BishopBarron	
-Mikhaila Peterson	Mikhaila Fuller	outer	https://www.youtube.com/@mikhaila	
-Agapic Orientation	Manuel Post	outer	https://www.youtube.com/@agapicorientation	
-Eric Seitz	Fr. Eric Seitz	outer	https://www.youtube.com/@fatherbigmac	
-Climbing Mt. Sophia.	Ken Lowry	outer	https://www.youtube.com/@climbingmt.sophia	
-The Great Tales	"Richard Rohlin, Fr. Andrew Stephen Damick"	outer	https://www.youtube.com/@thegreattales	
-Tammy Peterson	Tammy Peterson	outer	https://www.youtube.com/@TammyPetersonPodcast	
-Navigating Patterns	Mark Lefebvre	outer	https://www.youtube.com/@NavigatingPatterns	UCgIbaWd7raqeIGUS1cHNgPg
-	Jacob Faturechi	outer		
-	Christian Baxter	outer		
+channel name,owner,circle,address,channel id
+The Jordan B. Peterson Podcast,Jordan B Peterson,inner,https://www.youtube.com/@JordanBPeterson,UCL_f53ZEJxp8TtlOkHwMV9Q
+Jonathan Pageau,Jonathan Pageau,inner,https://www.youtube.com/@JonathanPageau/videos,UCgIbaWd7raqeIGUS1cHNgPg
+John Vervaeke,John Vervaeke,inner,https://www.youtube.com/@johnvervaeke,UCpqDUjTsof-kTNpnyWper_Q
+Paul VanderKlay,Paul VanderKlay,inner,https://www.youtube.com/@PaulVanderKlay,UCGsDIP_K6J6VSTqlq-9IPlg
+Bishop Robert Barron,Bishop Robert Barron,outer,https://www.youtube.com/@BishopBarron,UCcMjLgeWNwqL2LBGS-iPb1A
+Mikhaila Peterson,Mikhaila Fuller,outer,https://www.youtube.com/@mikhaila,UC6Hyj5sVbiYhpc_FA14nziw
+Agapic Orientation,Manuel Post,outer,https://www.youtube.com/@agapicorientation,UCmZRD_lDHC7XpdoomvwyJMA
+Eric Seitz,Fr. Eric Seitz,outer,https://www.youtube.com/@fatherbigmac,UCTdH4nh6JTcfKUAWvmnPoIQ
+Climbing Mt. Sophia,Ken Lowry,outer,https://www.youtube.com/@climbingmt.sophia,UCk9O91WwruXmgu1NQrKZZEw
+The Great Tales,"Richard Rohlin, Fr. Andrew Stephen Damick",outer,https://www.youtube.com/@thegreattales,UCon_7v6Hog9LP1NjN1QSrGQ
+Tammy Peterson,Tammy Peterson,outer,https://www.youtube.com/@TammyPetersonPodcast,UCUwUe0mLO6vOob4NmBL4cpw
+Navigating Patterns,Mark Lefebvre,outer,https://www.youtube.com/@NavigatingPatterns,UCgIbaWd7raqeIGUS1cHNgPg
+Jacob Faturechi,,outer,,
+"Christian Baxter	",,outer,,

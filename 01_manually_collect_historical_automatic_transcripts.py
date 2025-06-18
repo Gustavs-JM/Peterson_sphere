@@ -20,7 +20,6 @@ print(f'Now starting to collect all transcripts from the YouTube channel: "{chan
 ### Parameters:
 max_results = 5
 database_name = r'database'
-API_KEY = "AIzaSyDqhv8tJFEVqA_vhgd1uDTo2FJEtZtKDZA"
 
 
 ## Get info about the channel using the channel id, to get the uploads playlist id

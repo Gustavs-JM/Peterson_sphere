@@ -34,23 +34,6 @@ channel_name = channel_info['title']
 
 existing_saved_files = get_list_of_saved_local_transcripts(database_name, channel_name)
 
-
-
-"""
-video_id_test = 'A5216ZJVbVs'
-video_url_test = f'https://www.youtube.com/watch?v={video_id_test}'
-filename_test = {'channel': channel_name, 'filename': '2013_03_30_A5216ZJVbVs_WhatMatters'}
-folder_path_test = guarantee_directories(database_name, channel_name, filename_test)
-transcript_filename_test = 'audio_' + filename_test['filename']
-
-
-extract_audio(video_url_test, folder_path_test, transcript_filename_test)
-"""
-
-#quit()
-
-
-
 ## Get the full list of uploads by that channel, each video has a dictionary describing it
 all_videos_list = get_all_channel_videos(API_KEY, playlist_id, max_videos=None)
 

@@ -388,10 +388,13 @@ def get_list_of_saved_local_transcripts(database_name, channel_name):
 def extract_audio(youtube_url, output_path, filename):
     ydl_opts = {
         'format': 'bestaudio/best',
+        'extractaudio': True,
+        'audioformat': 'mp3',
+        'audioquality': '128k',  # Adjust quality here
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'wav',
-            'preferredquality': '192',
+            'preferredcodec': 'mp3',
+            'preferredquality': '128',
         }],
         'outtmpl': f'{output_path}/{filename}.%(ext)s',
     }

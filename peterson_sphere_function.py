@@ -390,11 +390,11 @@ def extract_audio(youtube_url, output_path, filename):
         'format': 'bestaudio/best',
         'extractaudio': True,
         'audioformat': 'mp3',
-        'audioquality': '128k',  # Adjust quality here
+        'audioquality': '64k',  # Adjust quality here
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
-            'preferredquality': '128',
+            'preferredquality': '64',
         }],
         'outtmpl': f'{output_path}/{filename}.%(ext)s',
     }

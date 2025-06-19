@@ -22,7 +22,7 @@ import time
 import yaml
 from datetime import datetime
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
-
+import yt_dlp
 
 def get_channel_info(api_key, channel_id=None, channel_username=None):
     """
@@ -374,12 +374,30 @@ def get_list_of_saved_local_transcripts(database_name, channel_name):
     analysis_path = os.path.join(database_name, channel_name)
     try:
         contents = os.listdir(analysis_path)
-        print(contents)
+
         paths = [os.path.join(analysis_path, x) for x in contents]
-        print(paths)
+
         files = {get_video_id_from_filename(x):[y.split('_', 1)[0] for y in os.listdir(os.path.join(analysis_path, x))] for x in contents}
-        print(files)
+
         return files
     except :
         print(f'ERROR: Database "{database_name}" not found: {database_name}')
         return {}
+
+
+def extract_audio(youtube_url, output_path, filename):
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'wav',
+            'preferredquality': '192',
+        }],
+        'outtmpl': f'{output_path}/{filename}.%(ext)s',
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([youtube_url])
+
+    print('DOWNLOAD FINISHED')
+

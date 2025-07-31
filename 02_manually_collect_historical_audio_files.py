@@ -4,7 +4,7 @@ import yt_dlp
 """
 This script is meant to be called through the terminal
 with manual input of the channel id
-to create directories for and collect transcripts from
+to create directories for and collect audio files from
 ALL videos from that channel
 """
 

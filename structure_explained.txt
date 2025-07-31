@@ -1,0 +1,21 @@
+Each script has a different function.
+The outcomes of the projects will be to make a "database" folder:
+database:
+    channel name
+            video names
+                audio file, automatic transcript, ## whisper transcript, whisper transcript diarized + labelled
+
+The idea is to then gather the whisperx transcripts into a collection for each channel
+
+Scripts:
+    01_manually_collect_historical_automatic_transcripts.py:    Manually takes a channel ID as input, then goes through that channel's uploads playlist, and makes a folder for each one in the database. Then iterates through the folders, and, if the folder does not contain an automatic transcript, it downloads that transcript using youtube_transcript_api, and saves it as a yaml file.
+    02_manually_collect_historical_audio_files.py: Manually takes a channel ID as input, then goes through that channel's uploads playlist, and makes a folder for each one in the database. Then iterates through the folders, and, if the folder does not contain an audio file, it downloads that file using yt_dlp
+    03_manually_get_google_transcipts: Bad script, useless. Will remove.
+    03_manually_make_whisper_transcript.py: Currently manually takes an mp3 file location, and makes a whisperx trasncript with it.
+    whisper-diarization: a library that should do the diarization. Not sure if it gets used at all, likely not at all.
+    sources.csv: contains data for various channels that are of interest. Can use manually to find the channel IDs, or to automate scraping of the channels.
+    peterson_sphere_function.py: contains the functions that are used for the different scripts. Core script library.
+
+Still needed functions:
+    Iteration through a channel's folders to iteratively convert all audio files into whisperx transcripts, and save them
+    Not only making a whisper transcript with diarization, but making a function that assigns the speakers names.

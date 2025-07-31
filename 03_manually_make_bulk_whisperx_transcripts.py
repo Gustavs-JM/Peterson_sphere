@@ -73,7 +73,7 @@ for video_id in existing_audio_but_no_transcript:
     try:
         result = transcribe_basic(
             audio_file=audiofile_address,
-            model_size="large-v2",  # or "medium", "small", etc.
+            model_size="tiny",  # or "medium", "small", etc.
             device="cpu",  # or "cpu" if no GPU, original "cuda"
             compute_type="int8", # This exists because I was running on my small device
         )
@@ -92,7 +92,7 @@ for video_id in existing_audio_but_no_transcript:
 
                 print(f"[{start_time:.2f}s - {end_time:.2f}s] {speaker}: {text}")
 
-            save_whisperx_transcript_to_yaml(result, whisperx_transcript_address)
+            save_whisperx_transcript_to_yaml(result, whisperx_transcript_address, video_id)
         else:
             print("Transcription failed!")
 

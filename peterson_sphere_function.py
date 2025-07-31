@@ -293,7 +293,7 @@ def save_transcript_to_yaml(video_id, video_info=None):
 
     return yaml_data
 
-def save_whisperx_transcript_to_yaml(result, output_file):
+def save_whisperx_transcript_to_yaml(result, output_file, audio_file):
     """
     Save WhisperX transcript result to YAML format.
 

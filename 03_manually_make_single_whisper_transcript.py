@@ -27,7 +27,6 @@ def main(HF_TOKEN):
         print(f"File not found: {audio_file}")
         print(f"Current directory: {os.getcwd()}")
         print(f"Files in directory: {os.listdir('.')}")
-
     try:
         result = transcribe_basic(
             audio_file=audio_file,
@@ -35,7 +34,6 @@ def main(HF_TOKEN):
             device="cpu",  # or "cpu" if no GPU, original "cuda"
             compute_type="int8", # This exists because I was running on my small device
         )
-
         if result["success"]:
             print(f"Transcription completed!")
             print(f"Language detected: {result['language']}")

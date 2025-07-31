@@ -8,8 +8,9 @@ ALL videos from that channel
 """
 
 
-with open('keys.txt', 'r') as file:
-    API_KEY = str(file.read().strip())
+keys = open('keys.txt')
+key_list = keys.readlines()
+API_KEY = key_list[0]
 
 print('WARNING \n This script will collect a vast amount of data using the youtube_transcript_api and it may take a long time to execute fully')
 print('Input the desired youtube channel ID:')
@@ -55,6 +56,7 @@ for video in all_videos_list:
 
         ## Get the transcript from the API
         auto_yaml = save_transcript_to_yaml(video_id, video_info=video)
+        print(auto_yaml)
 
         ## Save the transcript to the linked directory
         save_yaml_to_address(video_filename=folder_path, filename=transcript_filename, yaml_file=auto_yaml)

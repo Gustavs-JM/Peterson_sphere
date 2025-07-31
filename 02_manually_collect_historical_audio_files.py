@@ -9,8 +9,9 @@ ALL videos from that channel
 """
 
 
-with open('keys.txt', 'r') as file:
-    API_KEY = str(file.read().strip())
+keys = open('keys.txt')
+key_list = keys.readlines()
+API_KEY = key_list[0]
 
 print('WARNING \n This script will collect a vast amount of data using the youtube_transcript_api and it may take a long time to execute fully')
 print('Input the desired youtube channel ID:                (for example, UCL_f53ZEJxp8TtlOkHwMV9Q)')

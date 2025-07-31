@@ -293,6 +293,66 @@ def save_transcript_to_yaml(video_id, video_info=None):
 
     return yaml_data
 
+def save_whisperx_transcript_to_yaml(result, output_file):
+    """
+    Save WhisperX transcript result to YAML format.
+
+    Args:
+        result: WhisperX transcription result dictionary
+        output_file: Output YAML file path
+
+    Returns:
+        Path to saved YAML file
+    """
+
+    # Prepare data for YAML
+    transcript_data = {
+        'metadata': {
+            'audio_file': str(audio_file),
+            'language': result.get('language', 'unknown'),
+            'transcription_date': datetime.now().isoformat(),
+            'total_segments': len(result.get('segments', [])),
+            'model_used': 'whisperx'
+        },
+        'full_text': result.get('full_text', ''),
+        'segments': []
+    }
+
+    # Process segments
+    for i, segment in enumerate(result.get('segments', [])):
+        segment_data = {
+            'id': i + 1,
+            'start_time': round(segment.get('start', 0), 2),
+            'end_time': round(segment.get('end', 0), 2),
+            'text': segment.get('text', '').strip(),
+            'speaker': segment.get('speaker', 'Unknown')
+        }
+
+        # Add word-level data if available
+        if 'words' in segment:
+            segment_data['words'] = []
+            for word in segment['words']:
+                word_data = {
+                    'word': word.get('word', ''),
+                    'start': round(word.get('start', 0), 2),
+                    'end': round(word.get('end', 0), 2),
+                    'confidence': round(word.get('score', 0), 3) if 'score' in word else None
+                }
+                segment_data['words'].append(word_data)
+
+        transcript_data['segments'].append(segment_data)
+
+    # Save to YAML file
+    with open(output_file, 'w', encoding='utf-8') as f:
+        yaml.dump(transcript_data, f,
+                  default_flow_style=False,
+                  allow_unicode=True,
+                  indent=2,
+                  sort_keys=False)
+
+    return str(output_file)
+
+
 def make_video_filename(video_info=None):
     """
     :param video_info: various points of info about the video (dict)

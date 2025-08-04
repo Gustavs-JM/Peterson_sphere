@@ -1,6 +1,10 @@
 from peterson_sphere_function import *
 import yt_dlp
 from whisperx_transcription import transcribe_basic
+import warnings
+
+warnings.filterwarnings("ignore", message=".*MPEG_LAYER_III.*")
+
 
 """
 This script is meant to be called through the terminal
@@ -13,12 +17,13 @@ and make diarized whisperx transcripts for those files
 keys = open('keys.txt')
 key_list = keys.readlines()
 API_KEY = key_list[0]
+HF_TOKEN = key_list[1]
 
-print('WARNING \n This script will collect a vast amount of data using the youtube_transcript_api and it may take a long time to execute fully')
+print('WARNING \n This script will transcribe many long audio files using whisperx and it may take a long time to execute fully')
 print('Input the desired youtube channel ID:                (for example, UCL_f53ZEJxp8TtlOkHwMV9Q)')
 channel_id = input()
 
-print(f'Now starting to collect all transcripts from the YouTube channel: "{channel_id}"')
+print(f'Now starting to make all transcripts from the channel: "{channel_id}"')
 
 
 #channel_id = 'UCL_f53ZEJxp8TtlOkHwMV9Q'
@@ -76,6 +81,7 @@ for video_id in existing_audio_but_no_transcript:
             model_size="tiny",  # or "medium", "small", etc.
             device="cpu",  # or "cpu" if no GPU, original "cuda"
             compute_type="int8", # This exists because I was running on my small device
+            hf_token = HF_TOKEN
         )
 
         if result["success"]:

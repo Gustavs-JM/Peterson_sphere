@@ -1,97 +1,231 @@
 import whisperx
 import gc
+import torch
+
+import whisperx
+import gc
+import torch
 
 
 def transcribe_basic(
-        audio_file: str,
-        model_size: str = "large-v2",
-        device: str = "cpu",
-        compute_type: str = "int8"
+    audio_file: str,
+    model_size: str = "medium",
+    device: str = "cpu",
+    compute_type: str = "int8",
+    batch_size: int = 8,
+    hf_token: str = None,
+    min_speakers: int = None,
+    max_speakers: int = None,
+    num_speakers: int = None
 ):
     """
-    Most basic transcription - just Whisper without alignment complications.
+    WhisperX transcription with diarization that works across all versions.
+    Uses pyannote directly instead of relying on WhisperX's DiarizationPipeline.
     """
 
-    print(f"Loading model: {model_size}")
+    print(f"🎤 Processing: {audio_file}")
+    print(f"Settings: {model_size}, {device}, {compute_type}, batch_size={batch_size}")
+
+    # Step 1: Load Whisper model and transcribe
+    print("\n1️⃣ Loading Whisper model...")
     model = whisperx.load_model(model_size, device, compute_type=compute_type)
 
-    print(f"Loading audio: {audio_file}")
+    print("2️⃣ Loading audio...")
     audio = whisperx.load_audio(audio_file)
 
-    print("Starting transcription...")
-    result = model.transcribe(audio, batch_size=16)
+    print("3️⃣ Transcribing audio...")
+    result = model.transcribe(audio, batch_size=batch_size)
 
-    print(f"Transcription complete. Language detected: {result['language']}")
+    # Check if language was detected
+    if 'language' not in result:
+        print("⚠️ Language detection failed, defaulting to English")
+        result['language'] = 'en'
 
-    # Skip alignment to avoid issues
-    print("Skipping alignment - using Whisper's original timestamps")
+    print(f"✅ Transcription complete! Language: {result['language']}")
 
-    # Cleanup
+    # Clean up transcription model
     del model
     gc.collect()
+    if device == "cuda":
+        torch.cuda.empty_cache()
+
+    # Step 2: Word-level alignment
+    print("\n4️⃣ Aligning words...")
+    try:
+        model_a, metadata = whisperx.load_align_model(
+            language_code=result["language"],
+            device=device
+        )
+        result = whisperx.align(
+            result["segments"],
+            model_a,
+            metadata,
+            audio,
+            device,
+            return_char_alignments=False
+        )
+        print("✅ Word alignment complete!")
+
+        # Clean up alignment model
+        del model_a
+        gc.collect()
+        if device == "cuda":
+            torch.cuda.empty_cache()
+
+    except Exception as e:
+        print(f"⚠️ Alignment failed: {e}")
+        print("Continuing with original timestamps...")
+
+    # Step 3: Speaker Diarization using pyannote directly
+    if hf_token:
+        print("\n5️⃣ Starting speaker diarization...")
+        try:
+            # Import pyannote directly
+            from pyannote.audio import Pipeline
+
+            print("Loading diarization pipeline...")
+            # Load the diarization pipeline directly from pyannote
+            diarize_model = Pipeline.from_pretrained(
+                "pyannote/speaker-diarization-3.1",
+                use_auth_token=hf_token
+            )
+
+            # Move to device if using GPU
+            if device != "cpu":
+                diarize_model = diarize_model.to(torch.device(device))
+
+            # Set up diarization parameters
+            diarize_kwargs = {}
+            if min_speakers is not None:
+                diarize_kwargs['min_speakers'] = min_speakers
+            if max_speakers is not None:
+                diarize_kwargs['max_speakers'] = max_speakers
+            if num_speakers is not None:
+                diarize_kwargs['num_speakers'] = num_speakers
+
+            print(f"Diarization parameters: {diarize_kwargs}")
+
+            # Run diarization on the audio file directly
+            print("Running diarization...")
+            diarize_segments = diarize_model(audio_file, **diarize_kwargs)
+
+            # Assign speaker labels to transcript segments
+            print("Assigning speakers to transcript...")
+            result = assign_speakers_to_segments(diarize_segments, result)
+
+            # Count unique speakers found
+            speakers = set()
+            for segment in result["segments"]:
+                speaker = segment.get("speaker")
+                if speaker:
+                    speakers.add(speaker)
+
+            print(f"✅ Diarization complete! Found {len(speakers)} speakers: {list(speakers)}")
+
+        except ImportError:
+            print("❌ pyannote.audio not installed!")
+            print("Install with: pip install pyannote.audio")
+
+        except Exception as e:
+            print(f"❌ Diarization failed: {e}")
+            print("Possible issues:")
+            print("1. Invalid HuggingFace token")
+            print("2. Haven't accepted model agreements:")
+            print("   - https://huggingface.co/pyannote/segmentation-3.0")
+            print("   - https://huggingface.co/pyannote/speaker-diarization-3.1")
+            print("3. Network connectivity issues")
+            print("4. Insufficient memory")
+    else:
+        print("\n⚠️ No HuggingFace token provided - skipping diarization")
+        print("All speakers will be labeled as 'Unknown'")
+
+    # Step 4: Prepare final results
+    result['full_text'] = " ".join([seg["text"] for seg in result["segments"]])
 
     return {
         "success": True,
         "segments": result["segments"],
         "language": result["language"],
-        "full_text": " ".join([seg["text"] for seg in result["segments"]])
+        "full_text": result["full_text"],
+        "audio_file": audio_file
     }
 
+def save_diarized_transcript(result, output_file=None):
+    """Save diarized transcript to text file"""
+    if output_file is None:
+        audio_file = result.get("audio_file", "audio")
+        output_file = audio_file.rsplit('.', 1)[0] + '_diarized_transcript.txt'
 
-# Example usage
-if __name__ == "__main__":
-    import sys
-    import os
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(f"Diarized Transcript\n")
+        f.write(f"Language: {result['language']}\n")
+        f.write(f"Audio: {result.get('audio_file', 'Unknown')}\n")
+        f.write("=" * 50 + "\n\n")
 
-    if len(sys.argv) > 1:
-        audio_file = sys.argv[1]
-    else:
-        audio_file = input("Enter path to audio file: ")
+        # Write full text
+        f.write("FULL TRANSCRIPT:\n")
+        f.write(result['full_text'] + "\n\n")
 
-    # Check if file exists
-    if not os.path.exists(audio_file):
-        print(f"Error: File not found: {audio_file}")
-        exit(1)
+        # Write segments with speakers
+        f.write("SEGMENTS WITH SPEAKERS:\n")
+        f.write("-" * 30 + "\n")
 
-    print(f"Processing: {audio_file}")
+        for segment in result['segments']:
+            start = segment.get('start', 0)
+            end = segment.get('end', 0)
+            text = segment['text']
+            speaker = segment.get('speaker', 'Unknown')
 
-    try:
-        result = transcribe_basic(audio_file)
+            f.write(f"[{start:.2f}s - {end:.2f}s] {speaker}: {text}\n")
 
-        if result["success"]:
-            print(f"\n✅ SUCCESS!")
-            print(f"Language: {result['language']}")
-            print(f"Total segments: {len(result['segments'])}")
+    print(f"📄 Transcript saved to: {output_file}")
+    return output_file
 
-            # Save transcript to file
-            output_file = audio_file.rsplit('.', 1)[0] + '_transcript.txt'
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(f"Transcript - Language: {result['language']}\n")
-                f.write("=" * 50 + "\n\n")
-                f.write(result['full_text'] + "\n\n")
-                f.write("Segments with timestamps:\n")
-                f.write("-" * 30 + "\n")
-                for segment in result['segments']:
-                    start = segment.get('start', 0)
-                    end = segment.get('end', 0)
-                    text = segment['text']
-                    f.write(f"[{start:.2f}s - {end:.2f}s]: {text}\n")
 
-            print(f"\n📄 Transcript saved to: {output_file}")
+def create_srt_with_speakers(result, output_file=None):
+    """Create SRT subtitle file with speaker labels"""
+    if output_file is None:
+        audio_file = result.get("audio_file", "audio")
+        output_file = audio_file.rsplit('.', 1)[0] + '_diarized.srt'
 
-            # Print first few segments
-            print(f"\n📝 Preview (first 3 segments):")
-            for i, segment in enumerate(result['segments'][:3]):
-                start = segment.get('start', 0)
-                end = segment.get('end', 0)
-                text = segment['text']
-                print(f"  [{start:.2f}s - {end:.2f}s]: {text}")
+    with open(output_file, 'w', encoding='utf-8') as f:
+        for i, segment in enumerate(result['segments'], 1):
+            start = segment.get('start', 0)
+            end = segment.get('end', 0)
+            text = segment['text']
+            speaker = segment.get('speaker', 'Unknown')
 
-            if len(result['segments']) > 3:
-                print(f"  ... and {len(result['segments']) - 3} more segments")
+            # Convert to SRT time format
+            start_time = seconds_to_srt_time(start)
+            end_time = seconds_to_srt_time(end)
 
-    except Exception as e:
-        print(f"❌ Error during transcription: {e}")
-        import traceback
+            f.write(f"{i}\n")
+            f.write(f"{start_time} --> {end_time}\n")
+            f.write(f"{speaker}: {text}\n\n")
 
-        traceback.print_exc()
+    print(f"🎬 SRT file saved to: {output_file}")
+    return output_file
+
+
+def seconds_to_srt_time(seconds):
+    """Convert seconds to SRT time format"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millisecs = int((seconds % 1) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millisecs:03d}"
+
+
+def get_hf_token_instructions():
+    """Print instructions for getting HuggingFace token"""
+    print("\n🔑 HOW TO GET HUGGINGFACE TOKEN:")
+    print("1. Go to: https://huggingface.co/settings/tokens")
+    print("2. Click 'New token'")
+    print("3. Choose 'Read' permissions")
+    print("4. Copy the token (starts with 'hf_')")
+    print("\n📋 ACCEPT MODEL AGREEMENTS:")
+    print("5. Visit: https://huggingface.co/pyannote/segmentation-3.0")
+    print("6. Click 'Agree and access repository'")
+    print("7. Visit: https://huggingface.co/pyannote/speaker-diarization-3.1")
+    print("8. Click 'Agree and access repository'")
+    print("\nThen use your token in the function!")

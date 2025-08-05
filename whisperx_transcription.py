@@ -145,7 +145,7 @@ def transcribe_basic(
     return {
         "success": True,
         "segments": result["segments"],
-        "language": result["language"],
+        "language": 'en',
         "full_text": result["full_text"],
         "audio_file": audio_file
     }
@@ -229,3 +229,48 @@ def get_hf_token_instructions():
     print("7. Visit: https://huggingface.co/pyannote/speaker-diarization-3.1")
     print("8. Click 'Agree and access repository'")
     print("\nThen use your token in the function!")
+
+
+def assign_speakers_to_segments(diarize_segments, transcript_result):
+    """
+    Assign speaker labels from diarization to transcript segments.
+    This replaces whisperx.assign_word_speakers for compatibility.
+    """
+
+    # Convert diarization segments to a list of speaker intervals
+    speaker_intervals = []
+    for speech_turn, _, speaker in diarize_segments.itertracks(yield_label=True):
+        speaker_intervals.append({
+            'start': speech_turn.start,
+            'end': speech_turn.end,
+            'speaker': speaker
+        })
+
+    # Assign speakers to transcript segments based on overlap
+    for segment in transcript_result["segments"]:
+        segment_start = segment.get('start', 0)
+        segment_end = segment.get('end', segment_start)
+        segment_mid = (segment_start + segment_end) / 2
+
+        # Find the speaker interval that contains the middle of this segment
+        best_speaker = "Unknown"
+        best_overlap = 0
+
+        for speaker_interval in speaker_intervals:
+            # Check if segment overlaps with speaker interval
+            overlap_start = max(segment_start, speaker_interval['start'])
+            overlap_end = min(segment_end, speaker_interval['end'])
+            overlap_duration = max(0, overlap_end - overlap_start)
+
+            if overlap_duration > best_overlap:
+                best_overlap = overlap_duration
+                best_speaker = speaker_interval['speaker']
+
+        segment['speaker'] = best_speaker
+
+        # Also assign speaker to individual words if they exist
+        if 'words' in segment:
+            for word in segment['words']:
+                word['speaker'] = best_speaker
+
+    return transcript_result

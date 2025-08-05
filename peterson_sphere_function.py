@@ -151,7 +151,7 @@ def get_all_channel_videos(api_key, uploads_playlist_id, max_videos=None):
     while True:
         # Add delay to avoid rate limiting
         if page_counter > 0:
-            time.sleep(0.5)  # 500ms delay between requests
+            time.sleep(5)  # 500ms delay between requests
 
         # Parameters for the API request
         params = {

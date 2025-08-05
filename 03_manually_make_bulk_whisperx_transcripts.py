@@ -84,6 +84,8 @@ for video_id in existing_audio_but_no_transcript:
             hf_token = HF_TOKEN
         )
 
+        print('I am now this far. This should ')
+
         if result["success"]:
             print(f"Transcription completed!")
             print(f"Language detected: {result['language']}")

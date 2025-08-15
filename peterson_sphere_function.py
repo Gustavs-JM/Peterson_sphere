@@ -151,7 +151,7 @@ def get_all_channel_videos(api_key, uploads_playlist_id, max_videos=None):
     while True:
         # Add delay to avoid rate limiting
         if page_counter > 0:
-            time.sleep(5)  # 500ms delay between requests
+            time.sleep(random.uniform(40, 500))  # 40-500 second delay between requests
 
         # Parameters for the API request
         params = {
@@ -212,6 +212,8 @@ def get_video_transcript(video_id):
     Returns:
         dict: A dictionary with 'success' (bool), 'transcript' (list/str) and 'error' (str) if applicable
     """
+    time.sleep(random.uniform(40, 500)) # Time randomisation to avoid getting blocked
+
     try:
 
         transcript_data = YouTubeTranscriptApi().fetch(video_id, languages=['en'])
@@ -446,6 +448,9 @@ def get_list_of_saved_local_transcripts(database_name, channel_name):
 
 
 def extract_audio(youtube_url, output_path, filename):
+
+    time.sleep(random.uniform(40, 500))
+
     ydl_opts = {
         'format': 'bestaudio/best',
         'extractaudio': True,

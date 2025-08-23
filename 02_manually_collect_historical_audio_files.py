@@ -42,7 +42,9 @@ all_videos_list = get_all_channel_videos(API_KEY, playlist_id, max_videos=None)
 ## Iterate through the list, collecting, formatting and saving the transcripts
 for video in all_videos_list:
 
-    print(video)
+    #print(video)
+    for i in video:
+        print(i, video[i])
     ## Get the videoId for YouTube and filename for internal reference
     video_id = video['videoId'] #e.g. 7OAOksRVmpU
     video_url = f'https://www.youtube.com/watch?v={video_id}'

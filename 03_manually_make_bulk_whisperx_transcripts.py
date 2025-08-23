@@ -17,7 +17,8 @@ and make diarized whisperx transcripts for those files
 keys = open('keys.txt')
 key_list = keys.readlines()
 API_KEY = key_list[0]
-HF_TOKEN = key_list[1]
+HF_TOKEN = key_list[1].strip()
+CLAUDE_TOKEN = key_list[2]
 
 print('WARNING \n This script will transcribe many long audio files using whisperx and it may take a long time to execute fully')
 print('Input the desired youtube channel ID:                (for example, UCL_f53ZEJxp8TtlOkHwMV9Q)')
@@ -25,6 +26,8 @@ channel_id = input()
 
 print(f'Now starting to make all transcripts from the channel: "{channel_id}"')
 
+test_sample_correspondences = compare_audio_files('voice_samples/John_Vervaeke.mp3', 'voice_samples')
+print(test_sample_correspondences)
 
 #channel_id = 'UCL_f53ZEJxp8TtlOkHwMV9Q'
 
@@ -59,6 +62,14 @@ def get_foldername_from_video_id(database_name, channel_name, video_id):
 get_foldername_from_video_id(database_name, channel_name, 1)
 for video_id in existing_audio_but_no_transcript:
 
+    video_information = get_youtube_video_data_from_id(video_id, API_KEY)
+    video_title = video_information['title']
+    video_description = video_information['description']
+    video_tags = video_information['tags']
+    speakers_list =claude_initial_description_analysis(video_title, video_description, video_tags, CLAUDE_TOKEN)
+    print(speakers_list)
+    number_of_speakers = len(speakers_list)
+
     ## Get the address of the audio file in the folder
     folder_name = get_foldername_from_video_id(database_name, channel_name, video_id)
     folder_address = database_name+'/'+channel_name+'/'+folder_name
@@ -80,7 +91,8 @@ for video_id in existing_audio_but_no_transcript:
             audio_file=audiofile_address,
             model_size="tiny",  # or "medium", "small", etc.
             device="cpu",  # or "cpu" if no GPU, original "cuda"
-            compute_type="int8", # This exists because I was running on my small device
+            compute_type="int8", # This exists because I was running on my small device,
+            num_speakers = number_of_speakers,
             hf_token = HF_TOKEN
         )
 
@@ -110,34 +122,3 @@ for video_id in existing_audio_but_no_transcript:
 
 
 exit()
-
-
-
-## Get the full list of uploads by that channel, each video has a dictionary describing it
-all_videos_list = get_all_channel_videos(API_KEY, playlist_id, max_videos=None)
-
-
-## Iterate through the list, collecting, formatting and saving the transcripts
-for video in all_videos_list:
-
-    print(video)
-    ## Get the videoId for YouTube and filename for internal reference
-    video_id = video['videoId'] #e.g. 7OAOksRVmpU
-    video_url = f'https://www.youtube.com/watch?v={video_id}'
-    filename = make_video_filename(video) #e.g. 2025_05_12_7OAOksRVmpU_MartinShawContinuedU
-
-    ## Check if the video already has its transcript locally saved
-    if 'audio' in existing_saved_files.get(video_id, []):
-        print(f"{filename['filename']} audio already locally saved")
-        pass
-
-    else:
-        ## Get/make a bunch of addresses for directories
-        folder_path = guarantee_directories(database_name, channel_name, filename)  # e.g. C:\Users\Gusta\Desktop\Peterson_Sphere_Local\PaulVanderKlay\2025_05_12_7OAOksRVmpU_MartinShawContinuedU
-        audio_filename = 'audio_' + filename['filename']  # e.g. audio_2025_05_12_7OAOksRVmpU_MartinShawContinuedU
-
-        extract_audio(video_url, folder_path, audio_filename)
-
-        print(f"Saved as audio file: {video['publishedAt'], video['title']}")
-
-print(f'All audio collected for the channel: "{channel_id}"')

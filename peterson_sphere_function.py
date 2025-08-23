@@ -20,9 +20,17 @@ import os
 import requests
 import time
 import yaml
+import random
 from datetime import datetime
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 import yt_dlp
+from speechbrain.inference.speaker import SpeakerRecognition
+import torchaudio
+import librosa
+import torch
+from pathlib import Path
+
+torchaudio.set_audio_backend("ffmpeg")  # or try "sox"
 
 def get_channel_info(api_key, channel_id=None, channel_username=None):
     """
@@ -151,7 +159,9 @@ def get_all_channel_videos(api_key, uploads_playlist_id, max_videos=None):
     while True:
         # Add delay to avoid rate limiting
         if page_counter > 0:
-            time.sleep(random.uniform(40, 500))  # 40-500 second delay between requests
+            sleep_length = random.uniform(5, 30)
+            print(f'Waiting for {sleep_length} seconds before making the next request')
+            time.sleep(sleep_length)  # 40-500 second delay between requests
 
         # Parameters for the API request
         params = {
@@ -449,7 +459,11 @@ def get_list_of_saved_local_transcripts(database_name, channel_name):
 
 def extract_audio(youtube_url, output_path, filename):
 
-    time.sleep(random.uniform(40, 500))
+    wait_time = random.uniform(20, 240)
+    print(f'Waiting for {wait_time} seconds before making the next audio download request')
+    time.sleep(wait_time)
+
+    print(f'Output path: {output_path}, filename: {filename}')
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -466,3 +480,179 @@ def extract_audio(youtube_url, output_path, filename):
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([youtube_url])
+
+
+
+def get_youtube_video_data_from_id(video_id, api_key):
+
+    """
+    Fetch video data from YouTube API using video ID
+
+    Args:
+        video_id (str): YouTube video ID (e.g., 'dQw4w9WgXcQ')
+        api_key (str): Your YouTube Data API v3 key
+
+    Returns:
+        dict: Video data including title, description, channel info, etc.
+    """
+
+    # YouTube API endpoint
+    url = "https://www.googleapis.com/youtube/v3/videos"
+
+    # Parameters for the API call
+    params = {
+        'part': 'snippet,statistics,contentDetails',
+        'id': video_id,
+        'key': api_key
+    }
+
+    try:
+        # Make API request
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+
+        # Parse response
+        data = response.json()
+
+        # Check if video was found
+        if not data.get('items'):
+            return {'error': 'Video not found or private/deleted'}
+
+        # Extract video info
+        video_info = data['items'][0]
+        snippet = video_info['snippet']
+        statistics = video_info.get('statistics', {})
+        content_details = video_info.get('contentDetails', {})
+
+        # Return structured data
+        return {
+            'video_id': video_id,
+            'title': snippet.get('title', ''),
+            'description': snippet.get('description', ''),
+            'channel_title': snippet.get('channelTitle', ''),
+            'channel_id': snippet.get('channelId', ''),
+            'published_at': snippet.get('publishedAt', ''),
+            'duration': content_details.get('duration', ''),
+            'view_count': statistics.get('viewCount', '0'),
+            'like_count': statistics.get('likeCount', '0'),
+            'comment_count': statistics.get('commentCount', '0'),
+            'tags': snippet.get('tags', []),
+            'category_id': snippet.get('categoryId', ''),
+            'thumbnail': snippet.get('thumbnails', {}).get('high', {}).get('url', ''),
+            'raw_data': video_info  # Full API response if needed
+        }
+
+    except requests.exceptions.RequestException as e:
+        return {'error': f'API request failed: {str(e)}'}
+    except json.JSONDecodeError as e:
+        return {'error': f'Failed to parse response: {str(e)}'}
+    except Exception as e:
+        return {'error': f'Unexpected error: {str(e)}'}
+
+
+
+def claude_initial_description_analysis(title, description, tags, claude_api_key):
+    """
+        Extract list of people mentioned in a YouTube video using Claude API
+
+        Args:
+            title (str): YouTube video title
+            description (str): YouTube video description
+            api_key (str): Your Anthropic API key
+
+        Returns:
+            list: List of people names mentioned in the video
+        """
+    # Claude API endpoint
+    url = "https://api.anthropic.com/v1/messages"
+
+    # Headers
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": claude_api_key,
+        "anthropic-version": "2023-06-01"
+    }
+
+    # Prompt for extracting people
+    prompt = f"""
+        Based on this YouTube video title, description and tags, please identify all people who are likely talking in this video, not just people who are referred to. Return only a JSON list of names.
+
+        Title: {title}
+        Description: {description}
+        Tags: {tags}
+
+        Please return ONLY a valid JSON array of names, like: ["Name 1", "Name 2", "Name 3"]
+        If no specific people are mentioned, return an empty array: []
+        """
+
+    # Request payload
+    payload = {
+        "model": "claude-sonnet-4-20250514",
+        "max_tokens": 1000,
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    }
+
+    try:
+        # Make API request
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+
+        # Parse response
+        result = response.json()
+        content = result['content'][0]['text'].strip()
+
+        # Try to parse JSON response
+        try:
+            people_list = json.loads(content)
+            return people_list
+        except json.JSONDecodeError:
+            # If Claude didn't return valid JSON, try to extract names manually
+            print(f"Warning: Could not parse JSON response: {content}")
+            return []
+
+    except requests.exceptions.RequestException as e:
+        print(f"API request failed: {e}")
+        return []
+    except KeyError as e:
+        print(f"Unexpected response format: {e}")
+        return []
+
+
+def compare_audio_files(audio_clip, voice_samples_directory):
+    # Load pre-trained model
+    verification = SpeakerRecognition.from_hparams(
+        source="speechbrain/spkrec-ecapa-voxceleb",
+        savedir="pretrained_models/spkrec-ecapa-voxceleb"
+    )
+
+    main_waveform, _ = librosa.load(audio_clip, sr=16000)
+    main_waveform = torch.tensor(main_waveform).unsqueeze(0)
+
+    results = {}
+    voice_dir = Path(voice_samples_directory)
+
+    for voice_file in voice_dir.iterdir():
+        if voice_file.suffix.lower() in ['.wav', '.mp3']:
+            try:
+                # Load comparison audio
+                comp_waveform, _ = librosa.load(voice_file, sr=16000)
+                comp_waveform = torch.tensor(comp_waveform).unsqueeze(0)
+
+                # Compare using verify_batch
+                score, prediction = verification.verify_batch(main_waveform, comp_waveform)
+
+                results[voice_file.name] = {
+                    'score': float(score),
+                    'same_speaker': bool(prediction)
+                }
+
+            except Exception as e:
+                print(f"Error processing {voice_file.name}: {e}")
+                continue
+
+    return results

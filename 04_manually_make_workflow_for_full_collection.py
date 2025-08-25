@@ -28,6 +28,7 @@ import torch
 from pathlib import Path
 from typing import Dict, List, Any
 from peterson_sphere_function import *
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def make_whisper_transcript(audiofile_address, min_speakers, max_speakers, HF_TOKEN, whisperx_transcript_address, video_id):
     try:
@@ -124,11 +125,11 @@ else:
 print('')
 
 
-## Iterate through the list, collecting, formatting and saving the transcripts
-for video in all_videos_list:
 
+def process_file_from_name(video, parameters):
     ## Get the videoId for YouTube and filename for internal reference
     video_id = video['videoId'] #e.g. 7OAOksRVmpU
+    channel_name, API_KEY, HF_TOKEN, CLAUDE_TOKEN, database_name, voice_sample_directory = parameters
     filename = make_video_filename(video) #e.g. 2025_05_12_7OAOksRVmpU_MartinShawContinuedU
     video_url = f'https://www.youtube.com/watch?v={video_id}'
 
@@ -159,7 +160,7 @@ for video in all_videos_list:
             audiofilename = [x for x in full_filelist if x.split('_')[0] == 'audio'][0]
             audiofile_address = folder_address + '/' + audiofilename
 
-            print(f"Starting the transcription, diarisation process now at {time.now()}")
+            print(f"Starting the transcription, diarisation process now at {datetime.now()}")
             whisperx_transcript_address = folder_address + '/whisperx_' + folder_name + '.yaml'
             min_speakers = 1
             max_speakers = 6
@@ -201,7 +202,7 @@ for video in all_videos_list:
             audiofile_address = folder_address + '/' + audiofilename
             print(audiofile_address)
 
-            print(f"Starting the transcription, diarisation process now at {time.now()}")
+            print(f"Starting the transcription, diarisation process now at {datetime.now()}")
 
             whisperx_transcript_address = folder_address + '/whisperx_' + folder_name + '.yaml'
             min_speakers = 1
@@ -220,5 +221,23 @@ for video in all_videos_list:
 
         except Exception as e:
             print(f"Error: {e}")
+    return filename
 
+
+## Iterate through the list, collecting, formatting and saving the transcripts
+##for video in all_videos_list:
+##    process_file_from_name(video, parameters)
+
+def transcribe_files_parallel(all_videos_list, parameters, max_threads=8):
+    # Load model once for reuse, disables GPU here for CPU usage
+
+    with ThreadPoolExecutor(max_workers=max_threads) as executor:
+        futures = [executor.submit(process_file_from_name, video, parameters) for video in all_videos_list]
+        for future in as_completed(futures):
+            filename = future.result()
+            print(f"Completed: {filename}")
+
+
+parameters = (channel_name, API_KEY, HF_TOKEN, CLAUDE_TOKEN, database_name, voice_sample_directory)
+transcribe_files_parallel(all_videos_list, parameters, max_threads=8)
 print(f'This channel, {channel_name}, now has all data saved locally! Congratulations!')

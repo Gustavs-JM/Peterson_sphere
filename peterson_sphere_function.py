@@ -30,6 +30,7 @@ import librosa
 import torch
 from pathlib import Path
 from typing import Dict, List, Any
+#from whisperx_transcription import transcribe_basic
 
 torchaudio.set_audio_backend("ffmpeg")  # or try "sox"
 
@@ -358,7 +359,7 @@ def get_foldername_from_video_id(database_name, channel_name, video_id):
     foldername_list = os.listdir(channel_folder_address)
     splitted_foldernames = {x[11:22]:x for x in foldername_list}
     return splitted_foldernames.get(video_id, 0)
-
+"""
 def make_whisper_transcript(audiofile_address, min_speakers, max_speakers, HF_TOKEN, whisperx_transcript_address, video_id):
     try:
         result = transcribe_basic(
@@ -393,7 +394,7 @@ def make_whisper_transcript(audiofile_address, min_speakers, max_speakers, HF_TO
         print(f"Error: {e}")
 
     return result
-
+"""
 def make_video_filename(video_info=None):
     """
     :param video_info: various points of info about the video (dict)
@@ -888,7 +889,8 @@ def assign_speakers_through_audio_comparison(main_audio_path, yaml_transcript, v
                     good_comparisons[name] = comparisons_with_samples[name]['score']
             if len(good_comparisons)>0:
                 detected_name = max(good_comparisons, key=good_comparisons.get)
-                assigned_names[speaker] = detected_name
+                if good_comparisons[detected_name] > 0.75:
+                    assigned_names[speaker] = detected_name
         else:
             pass
 
@@ -984,9 +986,10 @@ def assign_speakers_through_api_judgement(
         for i in preceding_ids:
             if i > 1:
                 preceding_ids_2.append(i-2)
+        preceding_texts = {}
         if preceding_ids_2:
             preceding_texts = {speech_segments[x]['speaker']: speech_segments[x]['text'][-150:] for x in preceding_ids_2}
-        if preceding_texts:
+        if len(preceding_texts)>0:
             input_preceding_samples = f""""
             These are samples from things people in conversation, given with names of the speakers (which may or may not be known) said directly before the speaker you need to identify spoke. They may offer clues into the target speaker's identity: {preceding_texts}
             """

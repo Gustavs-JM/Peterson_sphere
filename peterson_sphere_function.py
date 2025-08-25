@@ -29,6 +29,7 @@ import torchaudio
 import librosa
 import torch
 from pathlib import Path
+from typing import Dict, List, Any
 
 torchaudio.set_audio_backend("ffmpeg")  # or try "sox"
 
@@ -334,23 +335,11 @@ def save_whisperx_transcript_to_yaml(result, output_file, audio_file):
     for i, segment in enumerate(result.get('segments', [])):
         segment_data = {
             'id': i + 1,
-            'start_time': round(segment.get('start', 0), 2),
-            'end_time': round(segment.get('end', 0), 2),
+            'start': segment.get('start', 0),
+            'end': segment.get('end', 0),
             'text': segment.get('text', '').strip(),
             'speaker': segment.get('speaker', 'Unknown')
         }
-
-        # Add word-level data if available
-        if 'words' in segment:
-            segment_data['words'] = []
-            for word in segment['words']:
-                word_data = {
-                    'word': word.get('word', ''),
-                    'start': round(word.get('start', 0), 2),
-                    'end': round(word.get('end', 0), 2),
-                    'confidence': round(word.get('score', 0), 3) if 'score' in word else None
-                }
-                segment_data['words'].append(word_data)
 
         transcript_data['segments'].append(segment_data)
 
@@ -361,8 +350,7 @@ def save_whisperx_transcript_to_yaml(result, output_file, audio_file):
                   allow_unicode=True,
                   indent=2,
                   sort_keys=False)
-
-    return str(output_file)
+    return transcript_data
 
 
 def make_video_filename(video_info=None):
@@ -622,6 +610,64 @@ def claude_initial_description_analysis(title, description, tags, claude_api_key
         print(f"Unexpected response format: {e}")
         return []
 
+def generic_claude_response(prompt, claude_api_key):
+    """
+        Extract list of people mentioned in a YouTube video using Claude API
+
+        Args:
+            title (str): YouTube video title
+            description (str): YouTube video description
+            api_key (str): Your Anthropic API key
+
+        Returns:
+            list: List of people names mentioned in the video
+        """
+    # Claude API endpoint
+    url = "https://api.anthropic.com/v1/messages"
+
+    # Headers
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": claude_api_key,
+        "anthropic-version": "2023-06-01"
+    }
+
+    # Request payload
+    payload = {
+        "model": "claude-sonnet-4-20250514",
+        "max_tokens": 1000,
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    }
+
+    try:
+        # Make API request
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+
+        # Parse response
+        result = response.json()
+        content = result['content'][0]['text'].strip()
+
+        # Try to parse JSON response
+        try:
+            people_list = json.loads(content)
+            return people_list
+        except json.JSONDecodeError:
+            # If Claude didn't return valid JSON, try to extract names manually
+            print(f"Warning: Could not parse JSON response: {content}")
+            return []
+
+    except requests.exceptions.RequestException as e:
+        print(f"API request failed: {e}")
+        return []
+    except KeyError as e:
+        print(f"Unexpected response format: {e}")
+        return []
 
 def compare_audio_files(audio_clip, voice_samples_directory):
     # Load pre-trained model
@@ -656,3 +702,326 @@ def compare_audio_files(audio_clip, voice_samples_directory):
                 continue
 
     return results
+
+
+def restructure_whisperx_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Restructure WhisperX result into a cleaner format for YAML output.
+
+    Args:
+        result: The original WhisperX result dictionary
+
+    Returns:
+        Restructured dictionary with simplified format
+    """
+
+    restructured = {
+        "metadata": {
+            "language": result.get("language", "unknown"),
+            "language_probability": result.get("language_probability", 0.0),
+            "total_segments": len(result.get("segments", [])),
+            "total_duration": 0.0
+        },
+        "segments": []
+    }
+
+    # Calculate total duration
+    if result.get("segments"):
+        last_segment = result["segments"][-1]
+        restructured["metadata"]["total_duration"] = last_segment.get("end", 0.0)
+
+    # Process segments
+    for i, segment in enumerate(result.get("segments", []), 1):
+        clean_segment = {
+            "segment_number": i,
+            "speaker": segment.get("speaker", "Unknown"),
+            "start_time": float(segment.get("start", 0)),
+            "end_time": float(segment.get("end", 0)),
+            "text": segment.get("text", "").strip()
+        }
+
+        restructured["segments"].append(clean_segment)
+
+    return restructured
+
+
+def extract_segment_librosa(audio_path, start_time, end_time, sr=16000):
+    """Extract audio segment using librosa"""
+
+    # Load full audio
+    audio, original_sr = librosa.load(audio_path, sr=sr)
+
+    # Convert time to sample indices
+    start_sample = int(start_time * sr)
+    end_sample = int(end_time * sr)
+
+    # Extract segment
+    segment = audio[start_sample:end_sample]
+
+    # Convert to torch tensor with batch dimension
+    segment_tensor = torch.tensor(segment).unsqueeze(0).float()
+
+    return segment_tensor, sr
+
+def compare_segment_with_file(main_audio_path, start_time, end_time, comparison_audio_path):
+    """Compare audio segment with another file using tensors"""
+
+    # Extract segment from main audio
+    segment_tensor, sr = extract_segment_librosa(main_audio_path, start_time, end_time)
+
+    # Load comparison audio
+    comparison_audio, _ = librosa.load(comparison_audio_path, sr=sr)
+    comparison_tensor = torch.tensor(comparison_audio).unsqueeze(0).float()
+
+    # Load SpeechBrain model
+    verification = SpeakerRecognition.from_hparams(
+        source="speechbrain/spkrec-ecapa-voxceleb",
+        savedir="pretrained_models/spkrec-ecapa-voxceleb"
+    )
+
+    # Compare using verify_batch
+    score, prediction = verification.verify_batch(segment_tensor, comparison_tensor)
+
+    return {
+        'score': float(score),
+        'same_speaker': bool(prediction),
+        'segment_duration': len(segment_tensor[0]) / sr
+    }
+
+def assign_speakers_through_audio_comparison(main_audio_path, yaml_transcript, voice_sample_directory):
+
+    assigned_names = {}
+    speakers = set()
+    segments = yaml_transcript.get("segments", [])
+    for segment in segments:
+        speaker = segment.get('speaker')
+        if speaker:
+            speakers.add(speaker)
+    speakers = list(speakers)
+    print(speakers)
+
+    for speaker in speakers:
+        if speaker[:7] == 'SPEAKER':
+            ## Find the segment start and end for voice comparison
+            print(speaker)
+            speaker_length_list = []
+            sorted_list = []
+            sorted_list_2 = []
+            for segment in segments:
+                if segment['speaker']==speaker:
+                    length = segment['end']-segment['start']
+                    speaker_length_list.append([length, segment['start'], segment['end']])
+            for x in speaker_length_list:
+                if x[0]>10:
+                    sorted_list.insert(0, x)
+                else:
+                    sorted_list.append(x)
+            for x in sorted_list:
+                if x[0] < 25:
+                    sorted_list_2.insert(0, x)
+                else:
+                    sorted_list_2.append(x)
+            chosen_segment = sorted_list_2[0]
+            chosen_start = chosen_segment[1]
+            chosen_end = chosen_segment[2]
+            if chosen_end - chosen_start > 16:
+                chosen_end = chosen_start + 16
+
+            comparisons_with_samples = {}
+            # Load the segment and compare it with each speaker sample
+            voice_dir = Path(voice_sample_directory)
+            for voice_file in voice_dir.iterdir():
+                if voice_file.suffix.lower() in ['.wav', '.mp3']:
+                    one_comparison = compare_segment_with_file(
+                        main_audio_path=main_audio_path,
+                        start_time=chosen_start,
+                        end_time=chosen_end,
+                        comparison_audio_path=voice_file
+                    )
+                    voice_name, ext = os.path.splitext(os.path.basename(voice_file))
+                    comparisons_with_samples[voice_name] = one_comparison
+
+            good_comparisons = {}
+            for name in comparisons_with_samples:
+                if comparisons_with_samples[name]['same_speaker'] == True:
+                    good_comparisons[name] = comparisons_with_samples[name]['score']
+            if len(good_comparisons)>0:
+                detected_name = max(good_comparisons, key=good_comparisons.get)
+                assigned_names[speaker] = detected_name
+        else:
+            pass
+
+    print(assigned_names)
+    new_segments = []
+    for segment in segments:
+        speaker = segment.get('speaker')
+        if speaker in assigned_names:
+            replacement_name = assigned_names[speaker]
+            segment['speaker'] = replacement_name
+            new_segments.append(segment)
+        else:
+            new_segments.append(segment)
+    new_yaml = yaml_transcript
+    new_yaml['segments'] = new_segments
+
+    for x in new_segments:
+        print(x)
+    return new_yaml
+
+def shorten_transcript(yaml):
+
+    segments = yaml.get('segments', [])
+    grouped_indexes = []
+
+    current_group = [0]
+    for i, segment in enumerate(segments[:-1]):
+        current_speaker = segment.get('speaker', '')
+        next_speaker = segments[i+1].get('speaker', '')
+        if current_speaker == next_speaker:
+            current_group.append(i+1)
+        else:
+            grouped_indexes.append(current_group)
+            current_group = [i+1]
+    grouped_indexes.append(current_group)
+
+
+    new_transcript = []
+    for i, group in enumerate(grouped_indexes):
+        group_texts = [segments[x].get('text', '') for x in group]
+        group_segment = {
+            'id': i+1,
+            'speaker': segments[group[0]].get('speaker', 'Unknown'),
+            'text': ' '.join(group_texts),
+            'start': segments[group[0]].get('start'),
+            'end': segments[group[-1]].get('end')
+        }
+        new_transcript.append(group_segment)
+
+    yaml['segments'] = new_transcript
+
+    return yaml
+
+def assign_speakers_through_api_judgement(
+        yaml_transcript,
+        speech_clip_directory,
+        video_id,
+        CLAUDE_API_KEY,
+        YOUTUBE_TOKEN):
+    a=1
+    while a==1:
+        print('starting the while loop')
+        speech_segments = yaml_transcript.get('segments')
+        print(speech_segments)
+        speakers = list(set([x['speaker'] for x in speech_segments]))
+        print(speakers)
+        unknown_speakers = [x for x in speakers if x[:7] == 'SPEAKER']
+        known_speakers = [x for x in speakers if x[:7] != 'SPEAKER']
+        if len(unknown_speakers) == 0:
+            break
+
+        speaker = unknown_speakers[0]
+        print(f'Starting the loop with speaker: {speaker}')
+
+        prompt_header = """"
+        You have the task of determining the identity of an unidentified speaker in a transcript of a youtube video. You will have to make a judgement, using the information given to you in this prompt. Try hard to give a name. If nothing is possible, return a name in the format of 'Unknown_1' or 'Unknown_2' etc., using a name that is not already used.
+        Return as an answer a name in a JSON format ONLY!, such as, for example, ['Jordan Peterson']. DO NOT RETURN MORE COMPLEX REPLIES, ONLY A SINGLE NAME!"""
+
+        ## Get the text samples from the target speaker
+        speaker_samples = [x['text'][:1000] for x in speech_segments if x['speaker']==speaker][:3]
+        if speaker_samples:
+            input_speaker_samples = f"""
+            These are samples from what the unknown speaker said. It should help you make a judgement on their identity: {speaker_samples}
+            """
+        else:
+            input_speaker_samples = ''
+
+
+        ## Get the speaker samples from the preceding text samples.
+        speaker_sample_indexes = [x['id'] for x in speech_segments if x['speaker']==speaker][:3]
+        preceding_ids = [x-1 for x in speaker_sample_indexes]
+        preceding_ids_2 = []
+        for i in preceding_ids:
+            if i > 1:
+                preceding_ids_2.append(i-2)
+        if preceding_ids_2:
+            preceding_texts = {speech_segments[x]['speaker']: speech_segments[x]['text'][-150:] for x in preceding_ids_2}
+        if preceding_texts:
+            input_preceding_samples = f""""
+            These are samples from things people in conversation, given with names of the speakers (which may or may not be known) said directly before the speaker you need to identify spoke. They may offer clues into the target speaker's identity: {preceding_texts}
+            """
+        else:
+            input_preceding_samples = ''
+
+
+        ### Get names of people that the target speaker is NOT:
+        voice_dir = Path(speech_clip_directory)
+        excluded_names = []
+        for voice_file in voice_dir.iterdir():
+            voice_name, ext = os.path.splitext(os.path.basename(voice_file))
+            excluded_names.append(voice_name)
+        if excluded_names:
+            input_excluded_names = f""""
+            These are names of people that the target speaker is NOT: {excluded_names}
+            """
+        else:
+            input_excluded_names= ''
+
+        print('Making the known_speakers')
+        ### Get known names in the video:
+        if known_speakers:
+            input_known_interlocutors = f"""
+            These are people who have been determined to also be in this conversation, but are NOT the target speaker: {[x for x in known_speakers if x != 'Unknown']}
+            """
+        else:
+            input_known_interlocutors = ''
+
+
+        ## Get the YOUTUBE data
+        video_data = get_youtube_video_data_from_id(video_id, YOUTUBE_TOKEN)
+
+        video_title = video_data.get('title')
+        video_description = video_data.get('description')[:2000]
+        video_tags = video_data.get('tags')
+
+        input_video_data = f""""
+        This is the title of the video this converstation is in: {video_title}
+        This is the first part of the description of the video: {video_description}
+        These are the tags of the video: {video_tags}
+        """
+
+        summarised_prompt = prompt_header + input_speaker_samples + input_preceding_samples + input_excluded_names + input_known_interlocutors + input_video_data
+
+
+        #print(summarised_prompt)
+        print('Getting the claude response now:')
+        claude_response = generic_claude_response(summarised_prompt, CLAUDE_API_KEY)[0]
+        print('CLAUDE RESPONSE: ', claude_response)
+
+        new_segments = []
+        for segment in speech_segments:
+            id_speaker = segment.get('speaker')
+            if id_speaker == speaker:
+                replacement_name = claude_response
+                segment['speaker'] = replacement_name
+                new_segments.append(segment)
+            else:
+                new_segments.append(segment)
+        new_yaml = yaml_transcript
+        new_yaml['segments'] = new_segments
+
+        yaml_transcript = new_yaml
+
+        print(yaml_transcript)
+
+        speech_segments = yaml_transcript.get('segments')
+        print(speech_segments)
+        speakers = list(set([x['speaker'] for x in speech_segments]))
+        print(speakers)
+        unknown_speakers = [x for x in speakers if x[:7] == 'SPEAKER']
+        known_speakers = [x for x in speakers if x[:7] != 'SPEAKER']
+        if len(unknown_speakers) == 0:
+            a=2
+    print(yaml_transcript)
+
+
+    return yaml_transcript

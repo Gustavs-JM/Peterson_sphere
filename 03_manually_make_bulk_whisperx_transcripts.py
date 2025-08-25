@@ -20,14 +20,53 @@ API_KEY = key_list[0]
 HF_TOKEN = key_list[1].strip()
 CLAUDE_TOKEN = key_list[2]
 
+voice_sample_directory = 'voice_samples'
+
+"""
+with open(
+        "database/Tammy Peterson/2025_08_15_tpp6fmpAI7U_HowDisneyRuinedSnowW/whisperxold_2025_08_15_tpp6fmpAI7U_HowDisneyRuinedSnowW.yaml") as stream:
+    try:
+        transcript = yaml.safe_load(stream)
+        #print(transcript)
+    except yaml.YAMLError as exc:
+        print(exc)
+shortened_transcript = shorten_transcript(transcript)
+for i in shortened_transcript['segments']:
+    print(i)
+
+main_audio_path = 'database/Tammy Peterson/2025_08_15_tpp6fmpAI7U_HowDisneyRuinedSnowW/audio_2025_08_15_tpp6fmpAI7U_HowDisneyRuinedSnowW.mp3'
+voice_sample_directory = 'voice_samples'
+assigned_through_samples = assign_speakers_through_audio_comparison(main_audio_path, shortened_transcript, voice_sample_directory)
+
+assigned_through_API = assign_speakers_through_api_judgement(
+        assigned_through_samples,
+        voice_sample_directory,
+        assigned_through_samples['metadata']['audio_file'],
+        CLAUDE_TOKEN,
+        API_KEY)
+
+for i in assigned_through_API['segments']:
+    print(i)
+"""
+#save_whisperx_transcript_to_yaml(assigned_through_API, whisperx_transcript_address, video_id)
+
+#save_whisperx_transcript_to_yaml(shortened_transcript, whisperx_transcript_address, video_id)
+
+
+
+
+
 print('WARNING \n This script will transcribe many long audio files using whisperx and it may take a long time to execute fully')
 print('Input the desired youtube channel ID:                (for example, UCL_f53ZEJxp8TtlOkHwMV9Q)')
 channel_id = input()
 
 print(f'Now starting to make all transcripts from the channel: "{channel_id}"')
 
-test_sample_correspondences = compare_audio_files('voice_samples/John_Vervaeke.mp3', 'voice_samples')
-print(test_sample_correspondences)
+
+
+
+#test_sample_correspondences = compare_audio_files('voice_samples/John_Vervaeke.mp3', 'voice_samples')
+#print(test_sample_correspondences)
 
 #channel_id = 'UCL_f53ZEJxp8TtlOkHwMV9Q'
 
@@ -110,15 +149,30 @@ for video_id in existing_audio_but_no_transcript:
                 text = segment["text"]
                 speaker = segment.get("speaker", "Unknown")
 
-                print(f"[{start_time:.2f}s - {end_time:.2f}s] {speaker}: {text}")
+                #print(f"[{start_time:.2f}s - {end_time:.2f}s], {float(end_time)}, {float(start_time)} {speaker}: {text}")
 
-            save_whisperx_transcript_to_yaml(result, whisperx_transcript_address, video_id)
+            #result = shorten_transcript(result)
+            result = save_whisperx_transcript_to_yaml(result, whisperx_transcript_address, video_id)
         else:
             print("Transcription failed!")
 
     except Exception as e:
         print(f"Error: {e}")
 
-
-
-exit()
+    try:
+        print('Now moving onto the next section')
+        assigned_transcript_address = folder_address + '/assigned_' + folder_name + '.yaml'
+        print('making the shortened transcript:')
+        shortened_transcript = shorten_transcript(result)
+        print('This is the shortened transcript')
+        print(shortened_transcript)
+        print('Assigning using the audio sample comparisons:')
+        assigned_through_samples = assign_speakers_through_audio_comparison(audiofile_address, shortened_transcript,voice_sample_directory)
+        print(assigned_through_samples)
+        print('Assigning using the API')
+        assigned_through_API = assign_speakers_through_api_judgement(assigned_through_samples,voice_sample_directory,assigned_through_samples['metadata']['audio_file'],CLAUDE_TOKEN,API_KEY)
+        print('Assigned by API:')
+        print(assigned_through_API)
+        save_whisperx_transcript_to_yaml(assigned_through_API, assigned_transcript_address, video_id)
+    except Exception as e:
+        print(f"Error: {e}")

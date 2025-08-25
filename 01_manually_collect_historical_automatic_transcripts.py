@@ -58,6 +58,8 @@ for video in all_videos_list:
         auto_yaml = save_transcript_to_yaml(video_id, video_info=video)
         print(auto_yaml)
 
+        auto_yaml = restructure_whisperx_result(auto_yaml)
+
         ## Save the transcript to the linked directory
         save_yaml_to_address(video_filename=folder_path, filename=transcript_filename, yaml_file=auto_yaml)
 

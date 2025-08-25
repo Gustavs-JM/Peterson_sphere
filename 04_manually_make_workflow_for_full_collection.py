@@ -159,6 +159,7 @@ for video in all_videos_list:
             audiofilename = [x for x in full_filelist if x.split('_')[0] == 'audio'][0]
             audiofile_address = folder_address + '/' + audiofilename
 
+            print(f"Starting the transcription, diarisation process now at {time.now()}")
             whisperx_transcript_address = folder_address + '/whisperx_' + folder_name + '.yaml'
             min_speakers = 1
             max_speakers = 6
@@ -200,10 +201,13 @@ for video in all_videos_list:
             audiofile_address = folder_address + '/' + audiofilename
             print(audiofile_address)
 
+            print(f"Starting the transcription, diarisation process now at {time.now()}")
+
             whisperx_transcript_address = folder_address + '/whisperx_' + folder_name + '.yaml'
             min_speakers = 1
             max_speakers = 6
             transcript = make_whisper_transcript(audiofile_address, min_speakers, max_speakers, HF_TOKEN, whisperx_transcript_address, video_id)
+            print(f"Done with transcription now at {time.now()}")
             shortened_transcript = shorten_transcript(transcript)
             assigned_through_samples = assign_speakers_through_audio_comparison(audiofile_address, shortened_transcript, voice_sample_directory)
             assigned_through_API = assign_speakers_through_api_judgement(assigned_through_samples,voice_sample_directory,assigned_through_samples['metadata']['audio_file'],CLAUDE_TOKEN,API_KEY)

@@ -353,6 +353,47 @@ def save_whisperx_transcript_to_yaml(result, output_file, audio_file):
     return transcript_data
 
 
+def get_foldername_from_video_id(database_name, channel_name, video_id):
+    channel_folder_address = database_name + '/' + channel_name
+    foldername_list = os.listdir(channel_folder_address)
+    splitted_foldernames = {x[11:22]:x for x in foldername_list}
+    return splitted_foldernames.get(video_id, 0)
+
+def make_whisper_transcript(audiofile_address, min_speakers, max_speakers, HF_TOKEN, whisperx_transcript_address, video_id):
+    try:
+        result = transcribe_basic(
+            audio_file=audiofile_address,
+            model_size="tiny",  # or "medium", "small", etc.
+            device="cpu",  # or "cpu" if no GPU, original "cuda"
+            compute_type="int8", # This exists because I was running on my small device,
+            min_speakers = min_speakers,
+            max_speakers = max_speakers,
+            hf_token = HF_TOKEN
+        )
+
+        print('I am now this far. This should ')
+
+        if result["success"]:
+            print(f"Transcription completed!")
+            print(f"Language detected: {result['language']}")
+            print("\nTranscript with speakers:")
+            print("-" * 50)
+
+            for segment in result["segments"]:
+                start_time = segment.get("start", 0)
+                end_time = segment.get("end", 0)
+                text = segment["text"]
+                speaker = segment.get("speaker", "Unknown")
+
+            result = save_whisperx_transcript_to_yaml(result, whisperx_transcript_address, video_id)
+        else:
+            print("Transcription failed!")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+    return result
+
 def make_video_filename(video_info=None):
     """
     :param video_info: various points of info about the video (dict)

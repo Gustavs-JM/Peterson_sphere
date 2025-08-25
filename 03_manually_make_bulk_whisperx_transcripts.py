@@ -65,11 +65,6 @@ print(f'Now starting to make all transcripts from the channel: "{channel_id}"')
 
 
 
-#test_sample_correspondences = compare_audio_files('voice_samples/John_Vervaeke.mp3', 'voice_samples')
-#print(test_sample_correspondences)
-
-#channel_id = 'UCL_f53ZEJxp8TtlOkHwMV9Q'
-
 
 ### Parameters:
 max_results = 5
@@ -97,7 +92,6 @@ def get_foldername_from_video_id(database_name, channel_name, video_id):
     splitted_foldernames = {x[11:22]:x for x in foldername_list}
     return splitted_foldernames.get(video_id, 0)
 
-
 get_foldername_from_video_id(database_name, channel_name, 1)
 for video_id in existing_audio_but_no_transcript:
 
@@ -105,7 +99,7 @@ for video_id in existing_audio_but_no_transcript:
     video_title = video_information['title']
     video_description = video_information['description']
     video_tags = video_information['tags']
-    speakers_list =claude_initial_description_analysis(video_title, video_description, video_tags, CLAUDE_TOKEN)
+    speakers_list = claude_initial_description_analysis(video_title, video_description, video_tags, CLAUDE_TOKEN)
     print(speakers_list)
     number_of_speakers = len(speakers_list)
 

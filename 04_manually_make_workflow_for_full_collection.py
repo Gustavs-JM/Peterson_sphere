@@ -127,6 +127,7 @@ print('')
 
 
 def process_file_from_name(video, parameters):
+    script_starting_time = datetime.now()
     ## Get the videoId for YouTube and filename for internal reference
     video_id = video['videoId'] #e.g. 7OAOksRVmpU
     channel_name, API_KEY, HF_TOKEN, CLAUDE_TOKEN, database_name, voice_sample_directory = parameters
@@ -221,7 +222,9 @@ def process_file_from_name(video, parameters):
 
         except Exception as e:
             print(f"Error: {e}")
-    return filename
+    script_ending_time = datetime.now()
+    script_running_time = script_ending_time-script_starting_time
+    return filename, script_running_time
 
 
 ## Iterate through the list, collecting, formatting and saving the transcripts
@@ -234,8 +237,8 @@ def transcribe_files_parallel(all_videos_list, parameters, max_threads=8):
     with ThreadPoolExecutor(max_workers=max_threads) as executor:
         futures = [executor.submit(process_file_from_name, video, parameters) for video in all_videos_list]
         for future in as_completed(futures):
-            filename = future.result()
-            print(f"Completed: {filename}")
+            filename, script_running_time = future.result()
+            print(f"Completed: {filename} in {script_running_time}")
 
 
 parameters = (channel_name, API_KEY, HF_TOKEN, CLAUDE_TOKEN, database_name, voice_sample_directory)

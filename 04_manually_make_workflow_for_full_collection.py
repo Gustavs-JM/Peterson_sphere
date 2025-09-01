@@ -123,6 +123,7 @@ else:
     try:
         print('Trying to get the video list from the saved dump file')
         dumpfile_name = 'saved_videolists/' + channel_id + '.txt'
+        print(f'The file is in {dumpfile_name}')
         with open(dumpfile_name, 'r') as f:
             all_videos_list = json.loads(f.read())
     except Exception as e:

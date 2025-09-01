@@ -85,6 +85,11 @@ print('WARNING \n This script will transcribe many long audio files using whispe
 print('Input the desired youtube channel ID:                (for example, UCL_f53ZEJxp8TtlOkHwMV9Q)')
 channel_id = input()
 
+if channel_id == 'PVK':
+    channel_id = 'UCGsDIP_K6J6VSTqlq-9IPlg'
+else:
+    pass
+
 print(f'Now starting to make all transcripts from the channel: "{channel_id}"')
 
 ### Parameters:
@@ -123,7 +128,7 @@ else:
         print(f"Error: {e}")
 
 print('')
-
+print(f"There are {len(all_videos_list)} videos in this channel to be analysed")
 
 
 def process_file_from_name(video, parameters):

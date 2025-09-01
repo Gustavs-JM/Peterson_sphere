@@ -115,6 +115,7 @@ print("If you want to download a new set of video information (THIS MIGHT TAKE M
 do_we_get_new_list = input()
 if do_we_get_new_list == 'y':
     all_videos_list = get_all_channel_videos(API_KEY, playlist_id, max_videos=None)
+    print(all_videos_list[:4])
     dumpfile_name = 'saved_videolists/'+channel_id+'.txt'
     with open(dumpfile_name, 'w') as f:
         f.write(json.dumps(all_videos_list))

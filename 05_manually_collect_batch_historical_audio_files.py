@@ -1,5 +1,6 @@
 from peterson_sphere_function import *
 import yt_dlp
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 """
 This script is meant to be called through the terminal
@@ -72,15 +73,22 @@ print(f"There are {len(all_videos_list)} videos in this channel to be analysed")
 
 
 ## Iterate through the list, collecting, formatting and saving the transcripts
-for video in all_videos_list:
 
-    #print(video)
+
+
+
+print(f'All audio collected for the channel: "{channel_id}"')
+
+def download_video(video, channel_name):
+
+    script_starting_time = datetime.now()
+    # print(video)
     for i in video:
         print(i, video[i])
     ## Get the videoId for YouTube and filename for internal reference
-    video_id = video['videoId'] #e.g. 7OAOksRVmpU
+    video_id = video['videoId']  # e.g. 7OAOksRVmpU
     video_url = f'https://www.youtube.com/watch?v={video_id}'
-    filename = make_video_filename(video) #e.g. 2025_05_12_7OAOksRVmpU_MartinShawContinuedU
+    filename = make_video_filename(video)  # e.g. 2025_05_12_7OAOksRVmpU_MartinShawContinuedU
 
     ## Check if the video already has its transcript locally saved
     if 'audio' in existing_saved_files.get(video_id, []):
@@ -89,8 +97,9 @@ for video in all_videos_list:
 
     else:
         ## Get/make a bunch of addresses for directories
-        #folder_path = guarantee_directories(database_name, channel_name, filename)  # e.g. C:\Users\Gusta\Desktop\Peterson_Sphere_Local\PaulVanderKlay\2025_05_12_7OAOksRVmpU_MartinShawContinuedU
-        folder_path = guarantee_directories('audio_database', channel_name, filename)  # e.g. C:\Users\Gusta\Desktop\Peterson_Sphere_Local\PaulVanderKlay\2025_05_12_7OAOksRVmpU_MartinShawContinuedU
+        # folder_path = guarantee_directories(database_name, channel_name, filename)  # e.g. C:\Users\Gusta\Desktop\Peterson_Sphere_Local\PaulVanderKlay\2025_05_12_7OAOksRVmpU_MartinShawContinuedU
+        folder_path = guarantee_directories('audio_database', channel_name,
+                                            filename)  # e.g. C:\Users\Gusta\Desktop\Peterson_Sphere_Local\PaulVanderKlay\2025_05_12_7OAOksRVmpU_MartinShawContinuedU
 
         audio_filename = 'audio_' + filename['filename']  # e.g. audio_2025_05_12_7OAOksRVmpU_MartinShawContinuedU
 
@@ -98,5 +107,20 @@ for video in all_videos_list:
 
         print(f"Saved as audio file: {video['publishedAt'], video['title']}")
 
-print(f'All audio collected for the channel: "{channel_id}"')
+    script_ending_time = datetime.now()
+    script_running_time = script_ending_time-script_starting_time
+    return audio_filename, script_running_time
 
+
+def transcribe_files_parallel(all_videos_list, channel_name, max_threads=2):
+    # Load model once for reuse, disables GPU here for CPU usage
+
+    with ThreadPoolExecutor(max_workers=max_threads) as executor:
+        futures = [executor.submit(download_video, video, channel_name) for video in all_videos_list]
+        for future in as_completed(futures):
+            filename, script_running_time = future.result()
+            print(f"Completed: {filename} downloaded mp3 file in {script_running_time}")
+
+
+transcribe_files_parallel(all_videos_list, channel_name, max_threads=2)
+print(f'This channel, {channel_name}, now has all data saved locally! Congratulations!')

@@ -13,11 +13,18 @@ keys = open('keys.txt')
 key_list = keys.readlines()
 API_KEY = key_list[0]
 
-print('WARNING \n This script will collect a vast amount of data using the youtube_transcript_api and it may take a long time to execute fully')
+print('WARNING \n This script will transcribe many long audio files using whisperx and it may take a long time to execute fully')
 print('Input the desired youtube channel ID:                (for example, UCL_f53ZEJxp8TtlOkHwMV9Q)')
 channel_id = input()
 
-print(f'Now starting to collect all transcripts from the YouTube channel: "{channel_id}"')
+if channel_id == 'PVK':
+    channel_id = 'UCGsDIP_K6J6VSTqlq-9IPlg'
+else:
+    pass
+
+print(f'Now starting to make all transcripts from the channel: "{channel_id}"')
+
+
 
 
 #channel_id = 'UCL_f53ZEJxp8TtlOkHwMV9Q'
@@ -33,10 +40,35 @@ print(channel_info)
 playlist_id = channel_info['uploadsPlaylistId']
 channel_name = channel_info['title']
 
-existing_saved_files = get_list_of_saved_local_transcripts(database_name, channel_name)
+existing_saved_files = get_list_of_saved_local_transcripts('audio_database', channel_name)
 
 ## Get the full list of uploads by that channel, each video has a dictionary describing it
-all_videos_list = get_all_channel_videos(API_KEY, playlist_id, max_videos=None)
+
+## save the list to a file
+print("If you want to download a new set of video information (THIS MIGHT TAKE MULTIPLE HOURS) then enter a lowercase Y: 'y', otherwise enter anything else.")
+do_we_get_new_list = input()
+if do_we_get_new_list == 'y':
+    all_videos_list = get_all_channel_videos(API_KEY, playlist_id, max_videos=None)
+    print(all_videos_list[:4])
+    dumpfile_name = 'saved_videolists/'+channel_id+'.txt'
+    with open(dumpfile_name, 'w') as f:
+        f.write(json.dumps(all_videos_list))
+else:
+    try:
+        print('Trying to get the video list from the saved dump file')
+        dumpfile_name = 'saved_videolists/' + channel_id + '.txt'
+        print(f'The file is in {dumpfile_name}')
+        with open(dumpfile_name, 'r') as f:
+            all_videos_list = json.loads(f.read())
+    except Exception as e:
+        print(f"Error: {e}")
+
+print('')
+print(f"There are {len(all_videos_list)} videos in this channel to be analysed")
+
+
+
+#all_videos_list = get_all_channel_videos(API_KEY, playlist_id, max_videos=None)
 
 
 ## Iterate through the list, collecting, formatting and saving the transcripts
@@ -57,7 +89,9 @@ for video in all_videos_list:
 
     else:
         ## Get/make a bunch of addresses for directories
-        folder_path = guarantee_directories(database_name, channel_name, filename)  # e.g. C:\Users\Gusta\Desktop\Peterson_Sphere_Local\PaulVanderKlay\2025_05_12_7OAOksRVmpU_MartinShawContinuedU
+        #folder_path = guarantee_directories(database_name, channel_name, filename)  # e.g. C:\Users\Gusta\Desktop\Peterson_Sphere_Local\PaulVanderKlay\2025_05_12_7OAOksRVmpU_MartinShawContinuedU
+        folder_path = guarantee_directories('audio_database', channel_name, filename)  # e.g. C:\Users\Gusta\Desktop\Peterson_Sphere_Local\PaulVanderKlay\2025_05_12_7OAOksRVmpU_MartinShawContinuedU
+
         audio_filename = 'audio_' + filename['filename']  # e.g. audio_2025_05_12_7OAOksRVmpU_MartinShawContinuedU
 
         extract_audio(video_url, folder_path, audio_filename)
